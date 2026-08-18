@@ -1,0 +1,56 @@
+device: null
+
+runtime:
+  dry_run: true
+  loop_interval_seconds: 0.25
+  screenshot_interval_seconds: 0.25
+  action_cooldown_seconds: 0.45
+  max_actions_per_minute: 90
+  log_level: INFO
+
+strategy:
+  # 空中单位占比达到此值，放弃石敢当，优先火山/风系天书。
+  air_ratio_threshold: 0.35
+  air_count_threshold: 3
+  # 符能低于此值时，不主动浪费普通符咒。
+  min_energy_to_spend: 35
+  reserve_energy: 25
+  # 基地血量低于此值，进入保命模式。
+  emergency_base_hp: 0.28
+  danger_base_hp: 0.50
+  # 允许前期小怪造成的血量损失，避免开局过早交资源。
+  early_game_seconds: 30
+  early_game_base_hp_floor: 0.42
+  early_game_ground_count_to_control: 7
+  ground_control_count: 4
+  delay_count: 3
+  boss_count: 1
+
+screen:
+  # 下面的值均为 0~1 的相对坐标，适配不同分辨率。
+  playfield: [0.03, 0.10, 0.94, 0.70]
+  base_hp_roi: [0.02, 0.02, 0.30, 0.08]
+  energy_roi: [0.35, 0.90, 0.30, 0.08]
+  stage_roi: [0.43, 0.02, 0.18, 0.07]
+  # 触控按钮中心，第一次使用前必须按实际截图修改。
+  buttons:
+    shigandang: [0.12, 0.91]
+    xuanshuiping: [0.28, 0.91]
+    qingnv: [0.44, 0.91]
+    volcano_book: [0.62, 0.91]
+    wind_book: [0.76, 0.91]
+    ordinary_spell: [0.90, 0.91]
+
+  # HSV 颜色启发式；可以先运行 --inspect 查看截图，再调整。
+  enemy_colors:
+    ground: [[0, 60, 50], [35, 255, 255]]
+    air: [[90, 40, 50], [140, 255, 255]]
+    boss: [[140, 40, 50], [179, 255, 255]]
+
+actions:
+  shigandang: {kind: tap, cooldown: 10.0, label: 石敢当天书}
+  xuanshuiping: {kind: drag, cooldown: 8.0, label: 玄水瓶}
+  qingnv: {kind: tap, cooldown: 12.0, label: 青女}
+  volcano_book: {kind: tap, cooldown: 15.0, label: 火山天书}
+  wind_book: {kind: tap, cooldown: 15.0, label: 风系天书}
+  ordinary_spell: {kind: tap, cooldown: 2.0, label: 普通符咒}

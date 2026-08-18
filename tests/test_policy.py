@@ -38,6 +38,14 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(base_hp=.2, ground_count=2), {"qingnv", "ordinary_spell"})
         self.assertEqual(d.action, "qingnv")
 
+    def test_boss_freezes_before_damage_window(self):
+        d = self.policy.choose(self.state(boss_count=1), {"qingnv", "volcano_book", "shigandang"})
+        self.assertEqual(d.action, "qingnv")
+
+    def test_empty_field_does_not_waste_skill(self):
+        d = self.policy.choose(self.state(), {"shigandang", "ordinary_spell"})
+        self.assertIsNone(d.action)
+
 
 if __name__ == "__main__":
     unittest.main()

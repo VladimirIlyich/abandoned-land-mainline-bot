@@ -9,7 +9,11 @@ class Decision:
 
 
 class MainlinePolicy:
-    """把资源分成保命、空中处理、地面控制和积攒四种节奏。"""
+    """按波次和威胁类型分配控制、输出与符能。
+
+    这里故意不追求固定脚本，而是每帧从四种节奏中选一个：积攒、地面控场、
+    空中处理、首领爆发。这样遇到随机刷怪时，不会因为固定秒表把技能交空。
+    """
 
     def __init__(self, config: dict):
         self.cfg = config["strategy"]
@@ -18,35 +22,40 @@ class MainlinePolicy:
         if not ready:
             return Decision(None, "没有可用技能")
 
+        if state.total_enemies == 0:
+            return Decision(None, "场上没有目标，不提前交技能")
+
         emergency = state.base_hp <= self.cfg["emergency_base_hp"]
         danger = state.base_hp <= self.cfg["danger_base_hp"]
         air_heavy = state.air_count >= self.cfg["air_count_threshold"] or state.air_ratio >= self.cfg["air_ratio_threshold"]
 
         if emergency:
-            for action in ("qingnv", "xuanshuiping", "wind_book", "volcano_book", "shigandang"):
+            for action in ("xuanshuiping", "qingnv", "wind_book", "volcano_book", "shigandang"):
                 if action in ready:
                     return Decision(action, "基地危险，优先保命与拖延")
 
         if air_heavy:
             for action in ("wind_book", "volcano_book", "xuanshuiping", "qingnv"):
                 if action in ready:
-                    return Decision(action, "空中单位较多，跳过石敢当")
+                    return Decision(action, "空中单位较多，跳过石敢当，优先对空或全屏拖延")
 
         if state.boss_count >= self.cfg["boss_count"]:
-            for action in ("shigandang", "xuanshuiping", "qingnv", "volcano_book", "wind_book"):
+            # 先冻住/拖住，再把火山落在首领脚下；石敢当只作无青女时的打断。
+            for action in ("qingnv", "volcano_book", "shigandang", "xuanshuiping", "wind_book"):
                 if action in ready:
-                    return Decision(action, "精英或首领出现，集中控制")
+                    return Decision(action, "首领窗口：先控制，再接火山或石敢当")
 
         if state.ground_count >= self.cfg["ground_control_count"]:
             for action in ("shigandang", "xuanshuiping", "qingnv"):
                 if action in ready:
-                    return Decision(action, "地面怪达到控场数量")
+                    return Decision(action, "地面怪达到控场数量，建立控制覆盖")
 
         if danger and "xuanshuiping" in ready:
             return Decision("xuanshuiping", "基地进入危险区，先拖延")
 
         early_tank = state.elapsed_seconds < self.cfg["early_game_seconds"] and state.base_hp >= self.cfg["early_game_base_hp_floor"]
-        if early_tank and state.energy < self.cfg["min_energy_to_spend"] / 100:
+        small_ground_pack = state.ground_count < self.cfg["early_game_ground_count_to_control"]
+        if early_tank and small_ground_pack and state.energy < self.cfg["min_energy_to_spend"] / 100:
             return Decision(None, "前期允许掉血，符能未到释放线")
 
         if "ordinary_spell" in ready and state.energy >= self.cfg["min_energy_to_spend"] / 100:

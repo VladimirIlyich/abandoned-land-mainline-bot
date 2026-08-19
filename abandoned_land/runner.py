@@ -21,8 +21,9 @@ class Runner:
         x, y = self.config["screen"]["buttons"][name]
         return int(x * image.width), int(y * image.height)
 
-    def _ready(self, now: float) -> set[str]:
-        return {name for name, spec in self.config["actions"].items() if now - self.last_action_at.get(name, -1e9) >= spec.get("cooldown", 0)}
+    def _ready(self, now: float, visual_ready: dict[str, bool]) -> set[str]:
+        local_ready = {name for name, spec in self.config["actions"].items() if now - self.last_action_at.get(name, -1e9) >= spec.get("cooldown", 0)}
+        return {name for name in local_ready if visual_ready.get(name, True)}
 
     def _rate_ok(self, now: float) -> bool:
         limit = self.config["runtime"]["max_actions_per_minute"]
@@ -51,9 +52,12 @@ class Runner:
                 image = self.adb.screenshot()
                 elapsed = loop_start - self.started_at
                 state = self.vision.read(image, elapsed)
+                state.visual_ready = self.vision.visual_ready(image)
                 now = time.monotonic()
-                decision = self.policy.choose(state, self._ready(now))
-                log.info("血量=%.2f 符能=%.2f 地面=%d 空中=%d 首领=%d | %s (%s)", state.base_hp, state.energy, state.ground_count, state.air_count, state.boss_count, decision.action or "等待", decision.reason)
+                ready = self._ready(now, state.visual_ready)
+                ready_books = ",".join(name for name in ("shigandang", "xuanshuiping", "qingnv", "volcano_book", "wind_book") if name in ready) or "无"
+                decision = self.policy.choose(state, ready)
+                log.info("血量=%.2f 符能=%.2f 符咒槽=%.0f%% 满=%s 地面=%d 空中=%d 首领=%d 可用天书=%s | %s (%s)", state.base_hp, state.energy, state.spell_fill * 100, state.spell_full, state.ground_count, state.air_count, state.boss_count, ready_books, decision.action or "等待", decision.reason)
                 if decision.action and self._rate_ok(now):
                     self._execute(decision.action, image, now)
                 time.sleep(max(0.02, self.config["runtime"]["loop_interval_seconds"] - (time.monotonic() - loop_start)))

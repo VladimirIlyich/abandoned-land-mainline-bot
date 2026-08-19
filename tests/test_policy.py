@@ -46,6 +46,11 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(), {"shigandang", "ordinary_spell"})
         self.assertIsNone(d.action)
 
+    def test_full_spell_slot_clears_before_enemy_logic(self):
+        state = self.state(ground_count=0, spell_fill=.8, spell_full=True)
+        d = self.policy.choose(state, {"ordinary_spell"})
+        self.assertEqual(d.action, "ordinary_spell")
+
 
 if __name__ == "__main__":
     unittest.main()

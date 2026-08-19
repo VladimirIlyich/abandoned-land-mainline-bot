@@ -22,6 +22,9 @@ class MainlinePolicy:
         if not ready:
             return Decision(None, "没有可用技能")
 
+        if state.spell_full and "ordinary_spell" in ready:
+            return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成")
+
         if state.total_enemies == 0:
             return Decision(None, "场上没有目标，不提前交技能")
 

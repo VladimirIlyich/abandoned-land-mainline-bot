@@ -31,6 +31,12 @@ screen:
   playfield: [0.03, 0.10, 0.94, 0.70]
   base_hp_roi: [0.02, 0.02, 0.30, 0.08]
   energy_roi: [0.35, 0.90, 0.30, 0.08]
+  # 需要按实机截图校准：符咒槽/符咒列表所在区域。
+  spell_detection:
+    enabled: true
+    roi: [0.78, 0.82, 0.18, 0.07]
+    fill_hsv: [[15, 60, 80], [45, 255, 255]]
+    full_at: 0.55
   stage_roi: [0.43, 0.02, 0.18, 0.07]
   # 触控按钮中心，第一次使用前必须按实际截图修改。
   buttons:
@@ -46,6 +52,11 @@ screen:
     ground: [[0, 60, 50], [35, 255, 255]]
     air: [[90, 40, 50], [140, 255, 255]]
     boss: [[140, 40, 50], [179, 255, 255]]
+  cooldown_detection:
+    enabled: true
+    roi_size: [0.07, 0.07]
+    ready_score_at: 0.42
+  action_rois: {}
 
 actions:
   shigandang: {kind: tap, cooldown: 10.0, label: 石敢当天书}
@@ -53,4 +64,4 @@ actions:
   qingnv: {kind: tap, cooldown: 12.0, label: 青女}
   volcano_book: {kind: tap, cooldown: 15.0, label: 火山天书}
   wind_book: {kind: tap, cooldown: 15.0, label: 风系天书}
-  ordinary_spell: {kind: tap, cooldown: 2.0, label: 普通符咒}
+  ordinary_spell: {kind: tap, cooldown: 0.35, label: 普通符咒}

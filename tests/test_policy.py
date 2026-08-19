@@ -70,6 +70,11 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(battle_screen=False, ground_count=10, spell_full=True), {"ordinary_spell", "shigandang"})
         self.assertIsNone(d.action)
 
+    def test_unvalidated_resources_block_sell_and_ordinary_spell(self):
+        d = self.policy.choose(self.state(ground_count=1, spell_full=True, base_hp_valid=False, energy_valid=False), {"ordinary_spell"})
+        self.assertIsNone(d.action)
+        self.assertIn("未校准", d.reason)
+
 
 if __name__ == "__main__":
     unittest.main()

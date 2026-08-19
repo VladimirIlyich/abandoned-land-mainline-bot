@@ -19,6 +19,8 @@ class GameState:
     boss_position: tuple[float, float] | None = None
     card_sources: dict[str, list[float]] | None = None
     battle_screen: bool = True
+    base_hp_valid: bool = True
+    energy_valid: bool = True
 
     @property
     def total_enemies(self) -> int:
@@ -154,6 +156,8 @@ class Vision:
         battle_screen = image.width >= image.height * min_landscape_ratio
         colors = screen["enemy_colors"]
         spell = screen.get("spell_detection", {})
+        base_hp_detection = screen.get("base_hp_detection", {})
+        energy_detection = screen.get("energy_detection", {})
         cards = _detect_cards(image, spell["card_roi"], spell.get("min_card_area", 1500)) if spell.get("enabled", False) else []
         card_count = len(cards)
         max_cards = spell.get("max_cards", 10)
@@ -162,12 +166,16 @@ class Vision:
         air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
         boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
         elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
+        base_hp_signal = _bar_ratio(image, screen["base_hp_roi"], "green")
+        energy_signal = _bar_ratio(image, screen["energy_roi"], "blue")
+        base_hp_valid = not base_hp_detection.get("enabled", True) or base_hp_signal >= base_hp_detection.get("min_signal", 0.08)
+        energy_valid = not energy_detection.get("enabled", True) or energy_signal >= energy_detection.get("min_signal", 0.08)
         card_sources: dict[str, list[float]] = {}
         for card_type, point in cards:
             card_sources.setdefault(card_type, point)
         return GameState(
-            base_hp=min(1.0, _bar_ratio(image, screen["base_hp_roi"], "green") * 3.0),
-            energy=min(1.0, _bar_ratio(image, screen["energy_roi"], "blue") * 3.0),
+            base_hp=min(1.0, base_hp_signal * 3.0),
+            energy=min(1.0, energy_signal * 3.0),
             ground_count=ground_count,
             air_count=air_count,
             boss_count=boss_count,
@@ -181,6 +189,8 @@ class Vision:
             boss_position=boss_position,
             card_sources=card_sources,
             battle_screen=battle_screen,
+            base_hp_valid=base_hp_valid,
+            energy_valid=energy_valid,
         )
 
     def visual_ready(self, image: Image.Image) -> dict[str, bool]:

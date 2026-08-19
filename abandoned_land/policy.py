@@ -33,14 +33,14 @@ class MainlinePolicy:
 
         spell_type = self._spell_type(state)
 
-        if state.spell_full and "ordinary_spell" in ready:
+        if state.spell_full and state.energy_valid and "ordinary_spell" in ready:
             return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成", "ground", spell_type)
 
         if state.total_enemies == 0:
             return Decision(None, "场上没有目标，不提前交技能")
 
-        emergency = state.base_hp <= self.cfg["emergency_base_hp"]
-        danger = state.base_hp <= self.cfg["danger_base_hp"]
+        emergency = state.base_hp_valid and state.base_hp <= self.cfg["emergency_base_hp"]
+        danger = state.base_hp_valid and state.base_hp <= self.cfg["danger_base_hp"]
         air_heavy = state.air_count >= self.cfg["air_count_threshold"] or state.air_ratio >= self.cfg["air_ratio_threshold"]
 
         if emergency:
@@ -69,6 +69,8 @@ class MainlinePolicy:
 
         safe_to_tank = (
             state.base_hp >= self.cfg["early_game_base_hp_floor"]
+            and state.base_hp_valid
+            and state.energy_valid
             and state.base_hp > self.cfg["danger_base_hp"]
             and state.elite_count + state.boss_count == 0
             and not air_heavy
@@ -76,12 +78,14 @@ class MainlinePolicy:
         if safe_to_tank and state.energy < self.cfg["min_energy_to_spend"] / 100:
             return Decision(None, "血量安全且无精英/空中高压，允许卖血攒符能")
 
-        if "ordinary_spell" in ready and state.energy >= self.cfg["min_energy_to_spend"] / 100:
+        if state.energy_valid and "ordinary_spell" in ready and state.energy >= self.cfg["min_energy_to_spend"] / 100:
             return Decision("ordinary_spell", "符能达到释放线", "ground", spell_type)
+        if not state.base_hp_valid or not state.energy_valid:
+            return Decision(None, "血量或符能识别未校准，禁止卖血和普通符咒")
         return Decision(None, "当前保留资源，等待更高价值目标")
 
     def _spell_type(self, state: GameState) -> str:
-        if state.base_hp <= self.cfg["danger_base_hp"]:
+        if state.base_hp_valid and state.base_hp <= self.cfg["danger_base_hp"]:
             return "freeze"
         if state.air_count >= self.cfg["air_count_threshold"] or state.air_ratio >= self.cfg["air_ratio_threshold"]:
             return "knockback"

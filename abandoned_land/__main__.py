@@ -78,6 +78,7 @@ def main() -> None:
             "base_hp_valid": state.base_hp_valid,
             "energy": round(state.energy, 3),
             "energy_valid": state.energy_valid,
+            "enemy_valid": state.enemy_valid,
             "spell_fill": round(state.spell_fill, 3),
             "ground_count": state.ground_count,
             "air_count": state.air_count,

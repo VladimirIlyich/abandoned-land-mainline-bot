@@ -26,6 +26,8 @@ class MainlinePolicy:
     def choose(self, state: GameState, ready: set[str]) -> Decision:
         if not state.battle_screen:
             return Decision(None, "未检测到横屏战斗画面，保持等待")
+        if not state.enemy_valid:
+            return Decision(None, "敌人识别结果异常，暂停释放等待重新识别")
         if self.enabled_actions is not None:
             ready = ready & self.enabled_actions
         if not ready:

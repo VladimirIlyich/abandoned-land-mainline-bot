@@ -21,10 +21,12 @@ class GameState:
     battle_screen: bool = True
     base_hp_valid: bool = True
     energy_valid: bool = True
+    enemy_valid: bool = True
 
     @property
     def total_enemies(self) -> int:
-        return self.ground_count + self.air_count + self.elite_count + self.boss_count
+        # boss/elite 常共用一套颜色掩码，取较大值避免同一目标被重复计算。
+        return self.ground_count + self.air_count + max(self.elite_count, self.boss_count)
 
     @property
     def air_ratio(self) -> float:
@@ -168,6 +170,9 @@ class Vision:
         air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
         boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
         elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
+        enemy_detection = screen.get("enemy_detection", {})
+        estimated_total = ground_count + air_count + max(elite_count, boss_count)
+        enemy_valid = not enemy_detection.get("enabled", True) or estimated_total <= enemy_detection.get("max_total_enemies", 24)
         base_hp_signal = _bar_ratio(image, screen["base_hp_roi"], "green")
         energy_signal = _bar_ratio(image, screen["energy_roi"], "blue")
         base_hp_valid = not base_hp_detection.get("enabled", True) or base_hp_signal >= base_hp_detection.get("min_signal", 0.08)
@@ -193,6 +198,7 @@ class Vision:
             battle_screen=battle_screen,
             base_hp_valid=base_hp_valid,
             energy_valid=energy_valid,
+            enemy_valid=enemy_valid,
         )
 
     def visual_ready(self, image: Image.Image) -> dict[str, bool]:

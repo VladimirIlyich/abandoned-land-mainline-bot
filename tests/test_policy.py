@@ -75,6 +75,10 @@ class PolicyTests(unittest.TestCase):
         self.assertIsNone(d.action)
         self.assertIn("未校准", d.reason)
 
+    def test_abnormal_enemy_count_blocks_release(self):
+        d = self.policy.choose(self.state(ground_count=30, enemy_valid=False), {"shigandang", "ordinary_spell"})
+        self.assertIsNone(d.action)
+
 
 if __name__ == "__main__":
     unittest.main()

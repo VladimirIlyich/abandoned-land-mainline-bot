@@ -11,6 +11,8 @@ runtime:
   history_interval_seconds: 1.0
 
 strategy:
+  # 进入关卡前手动装备对应天书，再用 --profile 约束脚本释放范围。
+  active_profile: ground
   # 空中单位占比达到此值，放弃石敢当，优先火山/风系天书。
   air_ratio_threshold: 0.35
   air_count_threshold: 3
@@ -28,12 +30,20 @@ strategy:
   delay_count: 3
   boss_count: 1
 
+profiles:
+  ground:
+    actions: [shigandang, xuanshuiping, qingnv, ghost_skill, ordinary_spell]
+  air:
+    actions: [wind_book, volcano_book, xuanshuiping, qingnv, ghost_skill, ordinary_spell]
+  boss:
+    actions: [qingnv, volcano_book, shigandang, xuanshuiping, ghost_skill, ordinary_spell]
+
 screen:
   # 下面的值均为 0~1 的相对坐标，适配不同分辨率。
   playfield: [0.03, 0.10, 0.94, 0.70]
   base_hp_roi: [0.00, 0.31, 0.16, 0.37]
   energy_roi: [0.35, 0.90, 0.30, 0.08]
-  # 需要按实机截图校准：符咒槽/符咒列表所在区域。
+  # 需要按实机截图校准：符咒槽/符咒列表所在区域。卡牌位置会在此区域内动态检测。
   spell_detection:
     enabled: true
     card_roi: [0.23, 0.72, 0.56, 0.25]
@@ -41,17 +51,6 @@ screen:
     min_card_area: 1500
   stage_roi: [0.43, 0.02, 0.18, 0.07]
   default_drag_target: [0.52, 0.48]
-  spell_cards:
-    slot_1: [0.265, 0.83]
-    slot_2: [0.317, 0.83]
-    slot_3: [0.371, 0.83]
-    slot_4: [0.423, 0.83]
-    slot_5: [0.475, 0.83]
-    slot_6: [0.527, 0.83]
-    slot_7: [0.581, 0.83]
-    slot_8: [0.633, 0.83]
-    slot_9: [0.685, 0.83]
-    slot_10: [0.735, 0.83]
   # 触控按钮中心，第一次使用前必须按实际截图修改。
   buttons:
     shigandang: [0.07, 0.85]

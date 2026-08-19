@@ -82,45 +82,46 @@ def _mask_ratio(image: Image.Image, box: list[float], bounds: list[list[int]]) -
     return float(np.count_nonzero(mask)) / max(mask.size, 1)
 
 
-def _count_spell_cards(image: Image.Image, box: list[float], min_area: int = 1500) -> int:
-    """按卡牌的高饱和色块估算当前卡牌数量，避免依赖 OCR。"""
+def _card_type(hue: float) -> str:
+    if hue <= 10 or hue >= 170:
+        return "damage"
+    if 90 <= hue <= 140:
+        return "freeze"
+    if 18 <= hue < 40:
+        return "stun"
+    if 40 <= hue < 90:
+        return "knockback"
+    return "damage"
+
+
+def _detect_cards(image: Image.Image, box: list[float], min_area: int = 1500) -> list[tuple[str, list[float]]]:
+    """检测当前手牌矩形，兼容卡牌数量变化时的动态排列。"""
     import cv2
     import numpy as np
+    w, h = image.size
     hsv = _roi(image, box)
     mask = cv2.inRange(hsv, np.array([0, 55, 45]), np.array([179, 255, 255]))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
     count, _, stats, _ = cv2.connectedComponentsWithStats(mask)
-    return sum(1 for area in stats[1:, cv2.CC_STAT_AREA] if area >= min_area)
-
-
-def _classify_cards(image: Image.Image, points: dict[str, list[float]]) -> dict[str, list[float]]:
-    """按卡牌主色给当前手牌建立可拖拽来源索引。"""
-    import cv2
-    import numpy as np
-    result: dict[str, list[float]] = {}
-    w, h = image.size
-    for point in points.values():
-        x, y = point
-        crop = np.asarray(image.crop((int((x - 0.018) * w), int((y - 0.08) * h), int((x + 0.018) * w), int((y + 0.08) * h))))
-        if crop.size == 0:
+    x0, y0, rw, rh = box
+    detected: list[tuple[str, list[float]]] = []
+    for i in range(1, count):
+        x, y, cw, ch, area = stats[i]
+        # 过滤文字、能量条和背景，只保留接近竖直卡牌的组件。
+        if area < min_area or ch < rh * h * 0.35 or cw < rw * w * 0.025:
             continue
-        hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
-        saturated = hsv[hsv[:, :, 1] > 70]
-        hue = float(np.median(saturated[:, 0])) if len(saturated) else -1
-        if hue < 0:
+        if cw > rw * w * 0.30 or ch > rh * h * 0.95:
             continue
-        if hue <= 10 or hue >= 170:
-            card_type = "damage"
-        elif 90 <= hue <= 140:
-            card_type = "freeze"
-        elif 18 <= hue < 40:
-            card_type = "stun"
-        elif 40 <= hue < 90:
-            card_type = "knockback"
-        else:
-            card_type = "damage"
-        result.setdefault(card_type, point)
-    return result
+        inner = hsv[y + max(2, ch // 8): y + max(3, ch - ch // 8),
+                    x + max(2, cw // 8): x + max(3, cw - cw // 8)]
+        saturated = inner[inner[:, :, 1] > 70]
+        if len(saturated) == 0:
+            continue
+        hue = float(np.median(saturated[:, 0]))
+        center = [x0 + ((x + cw / 2) / max(rw * w, 1)) * rw,
+                  y0 + ((y + ch / 2) / max(rh * h, 1)) * rh]
+        detected.append((_card_type(hue), center))
+    return sorted(detected, key=lambda item: item[1][0])
 
 
 class Vision:
@@ -131,14 +132,17 @@ class Vision:
         screen = self.config["screen"]
         colors = screen["enemy_colors"]
         spell = screen.get("spell_detection", {})
-        card_count = _count_spell_cards(image, spell["card_roi"], spell.get("min_card_area", 1500)) if spell.get("enabled", False) else 0
+        cards = _detect_cards(image, spell["card_roi"], spell.get("min_card_area", 1500)) if spell.get("enabled", False) else []
+        card_count = len(cards)
         max_cards = spell.get("max_cards", 10)
         spell_fill = min(1.0, card_count / max_cards) if max_cards else 0.0
         ground_count, ground_position = _color_stats(image, screen["playfield"], colors["ground"])
         air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
         boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
         elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
-        card_sources = _classify_cards(image, screen.get("spell_cards", {}))
+        card_sources: dict[str, list[float]] = {}
+        for card_type, point in cards:
+            card_sources.setdefault(card_type, point)
         return GameState(
             base_hp=min(1.0, _bar_ratio(image, screen["base_hp_roi"], "green") * 3.0),
             energy=min(1.0, _bar_ratio(image, screen["energy_roi"], "blue") * 3.0),

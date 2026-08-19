@@ -34,6 +34,16 @@ python -m abandoned_land --config config.yaml
 
 确认日志、按钮坐标和模板识别都正确后，把 `runtime.dry_run` 改为 `false`。
 
+进入关卡前先在游戏内装备与关卡匹配的天书，然后选择对应配置档：
+
+```powershell
+python -m abandoned_land --config config.yaml --profile ground
+python -m abandoned_land --config config.yaml --profile air
+python -m abandoned_land --config config.yaml --profile boss
+```
+
+配置档只限制战斗中允许释放的天书，不会在游戏内替换装备。普通符咒会从截图中动态寻找当前可见卡牌，按颜色识别爆发、冰冻、眩晕和击退类型，再拖到检测到的怪物位置；因此卡牌数量变化时不依赖固定槽位。
+
 ## 当前战术
 
 - 地面怪为主：石敢当天书优先控场；玄水瓶和青女负责拖延。

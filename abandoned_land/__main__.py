@@ -26,12 +26,24 @@ def validate_config(config: dict) -> None:
         raise SystemExit("配置至少需要一个 actions 技能")
 
 
+def apply_profile(config: dict, profile_name: str | None) -> None:
+    profile_name = profile_name or config.get("strategy", {}).get("active_profile")
+    if not profile_name:
+        return
+    profiles = config.get("profiles", {})
+    if profile_name not in profiles:
+        raise SystemExit(f"找不到天书配置档：{profile_name}。可用配置档：{', '.join(profiles) or '无'}")
+    config["strategy"]["active_profile"] = profile_name
+    config["strategy"]["enabled_actions"] = profiles[profile_name]["actions"]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="遗弃之地主线推关助手")
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--list-devices", action="store_true")
     parser.add_argument("--calibrate", action="store_true")
     parser.add_argument("--inspect", action="store_true")
+    parser.add_argument("--profile", help="入关前使用的天书配置档，例如 ground/air/boss")
     args = parser.parse_args()
 
     adb = AdbController()
@@ -44,6 +56,7 @@ def main() -> None:
         raise SystemExit(f"找不到配置文件：{config_path}。请先复制 config.example.yaml")
     config = load_config(str(config_path))
     validate_config(config)
+    apply_profile(config, args.profile)
     logging.basicConfig(level=getattr(logging, config["runtime"].get("log_level", "INFO")))
 
     if args.calibrate:

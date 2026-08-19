@@ -19,8 +19,13 @@ class MainlinePolicy:
 
     def __init__(self, config: dict):
         self.cfg = config["strategy"]
+        enabled = self.cfg.get("enabled_actions")
+        # 旧配置没有 enabled_actions 时，保留原来的“所有 actions 可用”行为。
+        self.enabled_actions = set(enabled) if enabled else None
 
     def choose(self, state: GameState, ready: set[str]) -> Decision:
+        if self.enabled_actions is not None:
+            ready = ready & self.enabled_actions
         if not ready:
             return Decision(None, "没有可用技能")
 

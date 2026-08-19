@@ -61,6 +61,11 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(elapsed_seconds=90, ground_count=2, energy=.2), {"ordinary_spell"})
         self.assertIsNone(d.action)
 
+    def test_air_pressure_selects_knockback_spell_type(self):
+        d = self.policy.choose(self.state(air_count=4, energy=.5), {"ordinary_spell"})
+        self.assertEqual(d.action, "ordinary_spell")
+        self.assertEqual(d.spell_type, "knockback")
+
 
 if __name__ == "__main__":
     unittest.main()

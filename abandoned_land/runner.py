@@ -42,6 +42,7 @@ class Runner:
             "decision": decision.action,
             "reason": decision.reason,
             "target": decision.target,
+            "spell_type": decision.spell_type,
         }
         try:
             with self.history_file.open("a", encoding="utf-8") as f:
@@ -56,11 +57,13 @@ class Runner:
     def _relative_point(self, point: list[float], image) -> tuple[int, int]:
         return int(point[0] * image.width), int(point[1] * image.height)
 
-    def _drag_points(self, name: str, image, state=None, target_kind: str | None = None) -> tuple[tuple[int, int], tuple[int, int]]:
+    def _drag_points(self, name: str, image, state=None, target_kind: str | None = None, spell_type: str | None = None) -> tuple[tuple[int, int], tuple[int, int]]:
         spec = self.config["actions"][name]
         source = spec.get("source")
         if source is None:
             source = self.config["screen"]["buttons"][name]
+        if name == "ordinary_spell" and state is not None and spell_type:
+            source = (state.card_sources or {}).get(spell_type, source)
         target = spec.get("target", self.config["screen"].get("default_drag_target", [0.52, 0.48]))
         if state is not None and target_kind:
             position = getattr(state, f"{target_kind}_position", None)
@@ -81,13 +84,13 @@ class Runner:
     def _execute(self, action: str, image, now: float, state, decision) -> None:
         if self.config["runtime"].get("dry_run", True):
             if self.config["actions"][action]["kind"] == "drag":
-                source, target = self._drag_points(action, image, state, decision.target)
+                source, target = self._drag_points(action, image, state, decision.target, decision.spell_type)
                 log.info("[dry-run] 拖拽 %s: %s -> %s", self.config["actions"][action]["label"], source, target)
             else:
                 x, y = self._point(action, image)
                 log.info("[dry-run] 点击 %s -> (%d,%d)", self.config["actions"][action]["label"], x, y)
         elif self.config["actions"][action]["kind"] == "drag":
-            source, target = self._drag_points(action, image, state, decision.target)
+            source, target = self._drag_points(action, image, state, decision.target, decision.spell_type)
             duration = self.config["actions"][action].get("duration_ms", 420)
             self.adb.swipe(source[0], source[1], target[0], target[1], duration)
             log.info("拖拽 %s: %s -> %s", self.config["actions"][action]["label"], source, target)

@@ -17,6 +17,7 @@ class GameState:
     air_position: tuple[float, float] | None = None
     elite_position: tuple[float, float] | None = None
     boss_position: tuple[float, float] | None = None
+    card_sources: dict[str, list[float]] | None = None
 
     @property
     def total_enemies(self) -> int:
@@ -92,6 +93,36 @@ def _count_spell_cards(image: Image.Image, box: list[float], min_area: int = 150
     return sum(1 for area in stats[1:, cv2.CC_STAT_AREA] if area >= min_area)
 
 
+def _classify_cards(image: Image.Image, points: dict[str, list[float]]) -> dict[str, list[float]]:
+    """按卡牌主色给当前手牌建立可拖拽来源索引。"""
+    import cv2
+    import numpy as np
+    result: dict[str, list[float]] = {}
+    w, h = image.size
+    for point in points.values():
+        x, y = point
+        crop = np.asarray(image.crop((int((x - 0.018) * w), int((y - 0.08) * h), int((x + 0.018) * w), int((y + 0.08) * h))))
+        if crop.size == 0:
+            continue
+        hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
+        saturated = hsv[hsv[:, :, 1] > 70]
+        hue = float(np.median(saturated[:, 0])) if len(saturated) else -1
+        if hue < 0:
+            continue
+        if hue <= 10 or hue >= 170:
+            card_type = "damage"
+        elif 90 <= hue <= 140:
+            card_type = "freeze"
+        elif 18 <= hue < 40:
+            card_type = "stun"
+        elif 40 <= hue < 90:
+            card_type = "knockback"
+        else:
+            card_type = "damage"
+        result.setdefault(card_type, point)
+    return result
+
+
 class Vision:
     def __init__(self, config: dict):
         self.config = config
@@ -107,6 +138,7 @@ class Vision:
         air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
         boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
         elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
+        card_sources = _classify_cards(image, screen.get("spell_cards", {}))
         return GameState(
             base_hp=min(1.0, _bar_ratio(image, screen["base_hp_roi"], "green") * 3.0),
             energy=min(1.0, _bar_ratio(image, screen["energy_roi"], "blue") * 3.0),
@@ -121,6 +153,7 @@ class Vision:
             air_position=air_position,
             elite_position=elite_position,
             boss_position=boss_position,
+            card_sources=card_sources,
         )
 
     def visual_ready(self, image: Image.Image) -> dict[str, bool]:

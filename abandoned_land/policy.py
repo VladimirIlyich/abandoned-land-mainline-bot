@@ -7,6 +7,7 @@ class Decision:
     action: str | None
     reason: str
     target: str | None = None
+    spell_type: str | None = None
 
 
 class MainlinePolicy:
@@ -23,8 +24,10 @@ class MainlinePolicy:
         if not ready:
             return Decision(None, "没有可用技能")
 
+        spell_type = self._spell_type(state)
+
         if state.spell_full and "ordinary_spell" in ready:
-            return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成", "ground")
+            return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成", "ground", spell_type)
 
         if state.total_enemies == 0:
             return Decision(None, "场上没有目标，不提前交技能")
@@ -63,5 +66,14 @@ class MainlinePolicy:
             return Decision(None, "前期允许掉血，符能未到释放线")
 
         if "ordinary_spell" in ready and state.energy >= self.cfg["min_energy_to_spend"] / 100:
-            return Decision("ordinary_spell", "符能达到释放线", "ground")
+            return Decision("ordinary_spell", "符能达到释放线", "ground", spell_type)
         return Decision(None, "当前保留资源，等待更高价值目标")
+
+    def _spell_type(self, state: GameState) -> str:
+        if state.base_hp <= self.cfg["danger_base_hp"]:
+            return "freeze"
+        if state.air_count >= self.cfg["air_count_threshold"] or state.air_ratio >= self.cfg["air_ratio_threshold"]:
+            return "knockback"
+        if state.ground_count >= self.cfg["ground_control_count"]:
+            return "stun"
+        return "damage"

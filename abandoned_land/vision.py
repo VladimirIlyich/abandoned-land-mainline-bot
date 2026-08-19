@@ -9,13 +9,14 @@ class GameState:
     air_count: int
     boss_count: int
     elapsed_seconds: float
+    elite_count: int = 0
     spell_fill: float = 0.0
     spell_full: bool = False
     visual_ready: dict[str, bool] | None = None
 
     @property
     def total_enemies(self) -> int:
-        return self.ground_count + self.air_count + self.boss_count
+        return self.ground_count + self.air_count + self.elite_count + self.boss_count
 
     @property
     def air_ratio(self) -> float:
@@ -88,6 +89,7 @@ class Vision:
             air_count=_count_color(image, screen["playfield"], colors["air"]),
             boss_count=_count_color(image, screen["playfield"], colors["boss"], min_area=120),
             elapsed_seconds=elapsed_seconds,
+            elite_count=_count_color(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120),
             spell_fill=spell_fill,
             spell_full=spell.get("enabled", False) and card_count >= max_cards,
         )

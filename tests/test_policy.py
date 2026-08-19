@@ -51,6 +51,12 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(state, {"ordinary_spell"})
         self.assertEqual(d.action, "ordinary_spell")
 
+    def test_ghost_skill_is_reserved_for_elites(self):
+        d = self.policy.choose(self.state(ground_count=5), {"ghost_skill", "shigandang"})
+        self.assertEqual(d.action, "shigandang")
+        d = self.policy.choose(self.state(elite_count=1), {"ghost_skill", "shigandang"})
+        self.assertEqual(d.action, "ghost_skill")
+
 
 if __name__ == "__main__":
     unittest.main()

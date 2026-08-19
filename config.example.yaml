@@ -7,6 +7,8 @@ runtime:
   action_cooldown_seconds: 0.45
   max_actions_per_minute: 90
   log_level: INFO
+  history_file: run_history.jsonl
+  history_interval_seconds: 1.0
 
 strategy:
   # 空中单位占比达到此值，放弃石敢当，优先火山/风系天书。
@@ -46,18 +48,20 @@ screen:
     knockback: [0.62, 0.83]
   # 触控按钮中心，第一次使用前必须按实际截图修改。
   buttons:
-    shigandang: [0.12, 0.91]
-    xuanshuiping: [0.28, 0.91]
-    qingnv: [0.44, 0.91]
-    volcano_book: [0.62, 0.91]
-    wind_book: [0.76, 0.91]
-    ordinary_spell: [0.90, 0.91]
+    shigandang: [0.07, 0.85]
+    xuanshuiping: [0.07, 0.85]
+    qingnv: [0.07, 0.85]
+    volcano_book: [0.07, 0.85]
+    wind_book: [0.07, 0.85]
+    ghost_skill: [0.88, 0.85]
+    ordinary_spell: [0.32, 0.83]
 
   # HSV 颜色启发式；可以先运行 --inspect 查看截图，再调整。
   enemy_colors:
     ground: [[0, 60, 50], [35, 255, 255]]
     air: [[90, 40, 50], [140, 255, 255]]
     boss: [[140, 40, 50], [179, 255, 255]]
+    elite: [[140, 40, 50], [179, 255, 255]]
   cooldown_detection:
     enabled: true
     roi_size: [0.07, 0.07]
@@ -65,9 +69,10 @@ screen:
   action_rois: {}
 
 actions:
-  shigandang: {kind: tap, cooldown: 10.0, label: 石敢当天书}
-  xuanshuiping: {kind: drag, source: [0.42, 0.83], target: [0.52, 0.48], duration_ms: 420, cooldown: 8.0, label: 玄水瓶}
-  qingnv: {kind: tap, cooldown: 12.0, label: 青女}
-  volcano_book: {kind: tap, cooldown: 15.0, label: 火山天书}
-  wind_book: {kind: tap, cooldown: 15.0, label: 风系天书}
+  shigandang: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 10.0, label: 石敢当天书}
+  xuanshuiping: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 8.0, label: 玄水瓶}
+  qingnv: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 12.0, label: 青女}
+  volcano_book: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 15.0, label: 火山天书}
+  wind_book: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 15.0, label: 风系天书}
+  ghost_skill: {kind: tap, cooldown: 12.0, label: 鬼仆技能}
   ordinary_spell: {kind: drag, source: [0.32, 0.83], target: [0.52, 0.48], duration_ms: 420, cooldown: 0.35, label: 普通符咒}

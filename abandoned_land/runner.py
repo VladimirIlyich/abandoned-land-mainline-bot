@@ -63,7 +63,9 @@ class Runner:
         if source is None:
             source = self.config["screen"]["buttons"][name]
         if name == "ordinary_spell" and state is not None and spell_type:
-            source = (state.card_sources or {}).get(spell_type, source)
+            sources = state.card_sources or {}
+            # 目标类型暂时没有时，使用当前手牌中的任意有效卡，不回退到过期固定槽位。
+            source = sources.get(spell_type) or (next(iter(sources.values())) if sources else source)
         target = spec.get("target", self.config["screen"].get("default_drag_target", [0.52, 0.48]))
         if state is not None and target_kind:
             position = getattr(state, f"{target_kind}_position", None)
@@ -82,6 +84,9 @@ class Runner:
         return len(self.action_times) < limit
 
     def _execute(self, action: str, image, now: float, state, decision) -> None:
+        if action == "ordinary_spell" and self.config["screen"].get("spell_detection", {}).get("enabled", False) and not state.card_sources:
+            log.warning("未检测到可拖拽符咒，跳过本次普通符咒释放")
+            return
         if self.config["runtime"].get("dry_run", True):
             if self.config["actions"][action]["kind"] == "drag":
                 source, target = self._drag_points(action, image, state, decision.target, decision.spell_type)

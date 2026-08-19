@@ -101,16 +101,34 @@ def _detect_cards(image: Image.Image, box: list[float], min_area: int = 1500) ->
     w, h = image.size
     hsv = _roi(image, box)
     mask = cv2.inRange(hsv, np.array([0, 55, 45]), np.array([179, 255, 255]))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-    count, _, stats, _ = cv2.connectedComponentsWithStats(mask)
     x0, y0, rw, rh = box
     detected: list[tuple[str, list[float]]] = []
-    for i in range(1, count):
-        x, y, cw, ch, area = stats[i]
-        # 过滤文字、能量条和背景，只保留接近竖直卡牌的组件。
-        if area < min_area or ch < rh * h * 0.35 or cw < rw * w * 0.025:
+    # 卡牌外发光会把相邻卡牌连成一个连通域，因此按列投影找卡牌间隙。
+    scan_h = int(hsv.shape[0] * 0.85)
+    projection = (mask[:scan_h] > 0).sum(axis=0)
+    column_threshold = max(35, int(scan_h * 0.15))
+    runs: list[tuple[int, int]] = []
+    start: int | None = None
+    for index, value in enumerate(projection):
+        if value > column_threshold and start is None:
+            start = index
+        elif value <= column_threshold and start is not None:
+            if index - start >= rw * w * 0.025:
+                runs.append((start, index))
+            start = None
+    if start is not None and len(projection) - start >= rw * w * 0.025:
+        runs.append((start, len(projection)))
+
+    for x, x_end in runs:
+        cw = x_end - x
+        row_projection = (mask[:scan_h, x:x_end] > 0).sum(axis=1)
+        row_threshold = max(8, int(cw * 0.15))
+        rows = np.flatnonzero(row_projection > row_threshold)
+        if len(rows) == 0:
             continue
-        if cw > rw * w * 0.30 or ch > rh * h * 0.95:
+        y, y_end = int(rows[0]), int(rows[-1] + 1)
+        ch = y_end - y
+        if cw * ch < min_area or ch < rh * h * 0.35:
             continue
         inner = hsv[y + max(2, ch // 8): y + max(3, ch - ch // 8),
                     x + max(2, cw // 8): x + max(3, cw - cw // 8)]

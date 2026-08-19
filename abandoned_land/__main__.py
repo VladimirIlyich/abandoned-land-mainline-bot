@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .adb import AdbController
 from .runner import Runner
+from .vision import Vision
 
 
 def load_config(path: str) -> dict:
@@ -64,8 +65,23 @@ def main() -> None:
         print("已保存 calibration.png，请据此修改 config.yaml 中的相对坐标。")
         return
     if args.inspect:
-        adb.save_screenshot("inspect.png")
-        print("已保存 inspect.png。当前版本识别结果需要在运行日志中查看。")
+        image = adb.screenshot()
+        image.save("inspect.png")
+        vision = Vision(config)
+        state = vision.read(image, 0)
+        ready = vision.visual_ready(image)
+        print({
+            "screenshot": "inspect.png",
+            "base_hp": round(state.base_hp, 3),
+            "energy": round(state.energy, 3),
+            "spell_fill": round(state.spell_fill, 3),
+            "ground_count": state.ground_count,
+            "air_count": state.air_count,
+            "elite_count": state.elite_count,
+            "boss_count": state.boss_count,
+            "card_sources": state.card_sources,
+            "ready_actions": sorted(name for name, is_ready in ready.items() if is_ready),
+        })
         return
 
     Runner(config, adb).run()

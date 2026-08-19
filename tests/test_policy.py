@@ -57,6 +57,10 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(elite_count=1), {"ghost_skill", "shigandang"})
         self.assertEqual(d.action, "ghost_skill")
 
+    def test_safe_midwave_can_sell_hp_for_energy(self):
+        d = self.policy.choose(self.state(elapsed_seconds=90, ground_count=2, energy=.2), {"ordinary_spell"})
+        self.assertIsNone(d.action)
+
 
 if __name__ == "__main__":
     unittest.main()

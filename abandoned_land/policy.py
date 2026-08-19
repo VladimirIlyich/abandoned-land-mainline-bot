@@ -60,10 +60,14 @@ class MainlinePolicy:
         if danger and "xuanshuiping" in ready:
             return Decision("xuanshuiping", "基地进入危险区，先拖延", "ground")
 
-        early_tank = state.elapsed_seconds < self.cfg["early_game_seconds"] and state.base_hp >= self.cfg["early_game_base_hp_floor"]
-        small_ground_pack = state.ground_count < self.cfg["early_game_ground_count_to_control"]
-        if early_tank and small_ground_pack and state.energy < self.cfg["min_energy_to_spend"] / 100:
-            return Decision(None, "前期允许掉血，符能未到释放线")
+        safe_to_tank = (
+            state.base_hp >= self.cfg["early_game_base_hp_floor"]
+            and state.base_hp > self.cfg["danger_base_hp"]
+            and state.elite_count + state.boss_count == 0
+            and not air_heavy
+        )
+        if safe_to_tank and state.energy < self.cfg["min_energy_to_spend"] / 100:
+            return Decision(None, "血量安全且无精英/空中高压，允许卖血攒符能")
 
         if "ordinary_spell" in ready and state.energy >= self.cfg["min_energy_to_spend"] / 100:
             return Decision("ordinary_spell", "符能达到释放线", "ground", spell_type)

@@ -18,6 +18,7 @@ class GameState:
     elite_position: tuple[float, float] | None = None
     boss_position: tuple[float, float] | None = None
     card_sources: dict[str, list[float]] | None = None
+    battle_screen: bool = True
 
     @property
     def total_enemies(self) -> int:
@@ -148,6 +149,9 @@ class Vision:
 
     def read(self, image: Image.Image, elapsed_seconds: float) -> GameState:
         screen = self.config["screen"]
+        battle_detection = screen.get("battle_detection", {})
+        min_landscape_ratio = battle_detection.get("min_landscape_ratio", 1.10)
+        battle_screen = image.width >= image.height * min_landscape_ratio
         colors = screen["enemy_colors"]
         spell = screen.get("spell_detection", {})
         cards = _detect_cards(image, spell["card_roi"], spell.get("min_card_area", 1500)) if spell.get("enabled", False) else []
@@ -176,6 +180,7 @@ class Vision:
             elite_position=elite_position,
             boss_position=boss_position,
             card_sources=card_sources,
+            battle_screen=battle_screen,
         )
 
     def visual_ready(self, image: Image.Image) -> dict[str, bool]:

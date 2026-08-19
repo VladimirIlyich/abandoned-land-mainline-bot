@@ -1,4 +1,6 @@
 device: null
+# 如果 adb 不在 PATH，可填绝对路径，例如 D:/Android/platform-tools/adb.exe。
+adb_path: adb
 
 runtime:
   dry_run: true
@@ -50,6 +52,9 @@ screen:
     max_cards: 10
     min_card_area: 1500
   stage_roi: [0.43, 0.02, 0.18, 0.07]
+  battle_detection:
+    enabled: true
+    min_landscape_ratio: 1.10
   default_drag_target: [0.52, 0.48]
   # 触控按钮中心，第一次使用前必须按实际截图修改。
   buttons:

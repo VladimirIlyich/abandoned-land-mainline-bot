@@ -58,6 +58,7 @@ def main() -> None:
     config = load_config(str(config_path))
     validate_config(config)
     apply_profile(config, args.profile)
+    adb = AdbController(device=config.get("device"), adb_path=config.get("adb_path"))
     logging.basicConfig(level=getattr(logging, config["runtime"].get("log_level", "INFO")))
 
     if args.calibrate:
@@ -72,6 +73,7 @@ def main() -> None:
         ready = vision.visual_ready(image)
         print({
             "screenshot": "inspect.png",
+            "battle_screen": state.battle_screen,
             "base_hp": round(state.base_hp, 3),
             "energy": round(state.energy, 3),
             "spell_fill": round(state.spell_fill, 3),

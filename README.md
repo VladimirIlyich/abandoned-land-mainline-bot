@@ -12,6 +12,8 @@
 python -m pip install -r requirements.txt
 ```
 
+如果 `adb devices` 只能用绝对路径执行，请在 `config.yaml` 中将 `adb_path` 改为 Android Platform Tools 里的 `adb.exe` 完整路径；无线设备也可以将 `device` 填成 `192.168.1.75:37951`，避免误选离线模拟器。
+
 4. 连接手机并确认：
 
 ```powershell

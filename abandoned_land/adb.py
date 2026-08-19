@@ -1,13 +1,15 @@
 import subprocess
+import os
 from pathlib import Path
 
 
 class AdbController:
-    def __init__(self, device: str | None = None):
+    def __init__(self, device: str | None = None, adb_path: str | None = None):
         self.device = device
+        self.adb_path = adb_path or os.environ.get("ADB_PATH", "adb")
 
     def _base(self) -> list[str]:
-        args = ["adb"]
+        args = [self.adb_path]
         if self.device:
             args += ["-s", self.device]
         return args

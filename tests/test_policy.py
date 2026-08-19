@@ -66,6 +66,10 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(d.action, "ordinary_spell")
         self.assertEqual(d.spell_type, "knockback")
 
+    def test_non_battle_screen_never_releases(self):
+        d = self.policy.choose(self.state(battle_screen=False, ground_count=10, spell_full=True), {"ordinary_spell", "shigandang"})
+        self.assertIsNone(d.action)
+
 
 if __name__ == "__main__":
     unittest.main()

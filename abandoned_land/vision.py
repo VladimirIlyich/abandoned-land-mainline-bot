@@ -72,6 +72,8 @@ def _bar_ratio(image: Image.Image, box: list[float], color: str) -> float:
     hsv = _roi(image, box)
     if color == "green":
         mask = cv2.inRange(hsv, np.array([35, 60, 60]), np.array([95, 255, 255]))
+    elif color == "blue":
+        mask = cv2.inRange(hsv, np.array([90, 60, 60]), np.array([140, 255, 255]))
     else:
         mask = cv2.inRange(hsv, np.array([0, 60, 60]), np.array([20, 255, 255]))
     return float(np.count_nonzero(mask)) / max(mask.size, 1)

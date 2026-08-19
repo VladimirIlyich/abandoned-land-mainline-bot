@@ -59,6 +59,17 @@ def _mask_ratio(image: Image.Image, box: list[float], bounds: list[list[int]]) -
     return float(np.count_nonzero(mask)) / max(mask.size, 1)
 
 
+def _count_spell_cards(image: Image.Image, box: list[float], min_area: int = 1500) -> int:
+    """按卡牌的高饱和色块估算当前卡牌数量，避免依赖 OCR。"""
+    import cv2
+    import numpy as np
+    hsv = _roi(image, box)
+    mask = cv2.inRange(hsv, np.array([0, 55, 45]), np.array([179, 255, 255]))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+    count, _, stats, _ = cv2.connectedComponentsWithStats(mask)
+    return sum(1 for area in stats[1:, cv2.CC_STAT_AREA] if area >= min_area)
+
+
 class Vision:
     def __init__(self, config: dict):
         self.config = config
@@ -67,8 +78,9 @@ class Vision:
         screen = self.config["screen"]
         colors = screen["enemy_colors"]
         spell = screen.get("spell_detection", {})
-        spell_fill = _mask_ratio(image, spell["roi"], spell["fill_hsv"]) if spell.get("enabled", False) else 0.0
-        full_at = spell.get("full_at", 0.55)
+        card_count = _count_spell_cards(image, spell["card_roi"], spell.get("min_card_area", 1500)) if spell.get("enabled", False) else 0
+        max_cards = spell.get("max_cards", 10)
+        spell_fill = min(1.0, card_count / max_cards) if max_cards else 0.0
         return GameState(
             base_hp=min(1.0, _bar_ratio(image, screen["base_hp_roi"], "green") * 3.0),
             energy=min(1.0, _bar_ratio(image, screen["energy_roi"], "blue") * 3.0),
@@ -77,7 +89,7 @@ class Vision:
             boss_count=_count_color(image, screen["playfield"], colors["boss"], min_area=120),
             elapsed_seconds=elapsed_seconds,
             spell_fill=spell_fill,
-            spell_full=spell.get("enabled", False) and spell_fill >= full_at,
+            spell_full=spell.get("enabled", False) and card_count >= max_cards,
         )
 
     def visual_ready(self, image: Image.Image) -> dict[str, bool]:

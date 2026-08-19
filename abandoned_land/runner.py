@@ -21,6 +21,17 @@ class Runner:
         x, y = self.config["screen"]["buttons"][name]
         return int(x * image.width), int(y * image.height)
 
+    def _relative_point(self, point: list[float], image) -> tuple[int, int]:
+        return int(point[0] * image.width), int(point[1] * image.height)
+
+    def _drag_points(self, name: str, image) -> tuple[tuple[int, int], tuple[int, int]]:
+        spec = self.config["actions"][name]
+        source = spec.get("source")
+        if source is None:
+            source = self.config["screen"]["buttons"][name]
+        target = spec.get("target", self.config["screen"].get("default_drag_target", [0.52, 0.48]))
+        return self._relative_point(source, image), self._relative_point(target, image)
+
     def _ready(self, now: float, visual_ready: dict[str, bool]) -> set[str]:
         local_ready = {name for name, spec in self.config["actions"].items() if now - self.last_action_at.get(name, -1e9) >= spec.get("cooldown", 0)}
         return {name for name in local_ready if visual_ready.get(name, True)}
@@ -32,13 +43,20 @@ class Runner:
         return len(self.action_times) < limit
 
     def _execute(self, action: str, image, now: float) -> None:
-        x, y = self._point(action, image)
         if self.config["runtime"].get("dry_run", True):
-            log.info("[dry-run] %s -> (%d,%d)", self.config["actions"][action]["label"], x, y)
+            if self.config["actions"][action]["kind"] == "drag":
+                source, target = self._drag_points(action, image)
+                log.info("[dry-run] 拖拽 %s: %s -> %s", self.config["actions"][action]["label"], source, target)
+            else:
+                x, y = self._point(action, image)
+                log.info("[dry-run] 点击 %s -> (%d,%d)", self.config["actions"][action]["label"], x, y)
         elif self.config["actions"][action]["kind"] == "drag":
-            self.adb.swipe(x, y, int(image.width * 0.52), int(image.height * 0.47), 280)
-            log.info("拖拽 %s", self.config["actions"][action]["label"])
+            source, target = self._drag_points(action, image)
+            duration = self.config["actions"][action].get("duration_ms", 420)
+            self.adb.swipe(source[0], source[1], target[0], target[1], duration)
+            log.info("拖拽 %s: %s -> %s", self.config["actions"][action]["label"], source, target)
         else:
+            x, y = self._point(action, image)
             self.adb.tap(x, y)
             log.info("点击 %s", self.config["actions"][action]["label"])
         self.last_action_at[action] = now

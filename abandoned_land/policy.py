@@ -6,6 +6,7 @@ from .vision import GameState
 class Decision:
     action: str | None
     reason: str
+    target: str | None = None
 
 
 class MainlinePolicy:
@@ -23,7 +24,7 @@ class MainlinePolicy:
             return Decision(None, "没有可用技能")
 
         if state.spell_full and "ordinary_spell" in ready:
-            return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成")
+            return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成", "ground")
 
         if state.total_enemies == 0:
             return Decision(None, "场上没有目标，不提前交技能")
@@ -35,26 +36,26 @@ class MainlinePolicy:
         if emergency:
             for action in ("xuanshuiping", "qingnv", "wind_book", "volcano_book", "shigandang"):
                 if action in ready:
-                    return Decision(action, "基地危险，优先保命与拖延")
+                    return Decision(action, "基地危险，优先保命与拖延", "ground")
 
         if air_heavy:
             for action in ("wind_book", "volcano_book", "xuanshuiping", "qingnv"):
                 if action in ready:
-                    return Decision(action, "空中单位较多，跳过石敢当，优先对空或全屏拖延")
+                    return Decision(action, "空中单位较多，跳过石敢当，优先对空或全屏拖延", "air")
 
         if state.elite_count + state.boss_count >= self.cfg["boss_count"]:
             # 先冻住/拖住，再把火山落在首领脚下；石敢当只作无青女时的打断。
             for action in ("ghost_skill", "qingnv", "volcano_book", "shigandang", "xuanshuiping", "wind_book"):
                 if action in ready:
-                    return Decision(action, "精英/首领窗口：优先鬼仆，再控制和输出")
+                    return Decision(action, "精英/首领窗口：优先鬼仆，再控制和输出", "elite")
 
         if state.ground_count >= self.cfg["ground_control_count"]:
             for action in ("shigandang", "xuanshuiping", "qingnv"):
                 if action in ready:
-                    return Decision(action, "地面怪达到控场数量，建立控制覆盖")
+                    return Decision(action, "地面怪达到控场数量，建立控制覆盖", "ground")
 
         if danger and "xuanshuiping" in ready:
-            return Decision("xuanshuiping", "基地进入危险区，先拖延")
+            return Decision("xuanshuiping", "基地进入危险区，先拖延", "ground")
 
         early_tank = state.elapsed_seconds < self.cfg["early_game_seconds"] and state.base_hp >= self.cfg["early_game_base_hp_floor"]
         small_ground_pack = state.ground_count < self.cfg["early_game_ground_count_to_control"]
@@ -62,5 +63,5 @@ class MainlinePolicy:
             return Decision(None, "前期允许掉血，符能未到释放线")
 
         if "ordinary_spell" in ready and state.energy >= self.cfg["min_energy_to_spend"] / 100:
-            return Decision("ordinary_spell", "符能达到释放线")
+            return Decision("ordinary_spell", "符能达到释放线", "ground")
         return Decision(None, "当前保留资源，等待更高价值目标")

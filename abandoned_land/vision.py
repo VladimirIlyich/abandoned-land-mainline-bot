@@ -13,6 +13,10 @@ class GameState:
     spell_fill: float = 0.0
     spell_full: bool = False
     visual_ready: dict[str, bool] | None = None
+    ground_position: tuple[float, float] | None = None
+    air_position: tuple[float, float] | None = None
+    elite_position: tuple[float, float] | None = None
+    boss_position: tuple[float, float] | None = None
 
     @property
     def total_enemies(self) -> int:
@@ -39,6 +43,23 @@ def _count_color(image: Image.Image, box: list[float], bounds: list[list[int]], 
     mask = cv2.inRange(hsv, np.array(bounds[0]), np.array(bounds[1]))
     count, _, stats, _ = cv2.connectedComponentsWithStats(mask)
     return sum(1 for area in stats[1:, cv2.CC_STAT_AREA] if area >= min_area)
+
+
+def _color_stats(image: Image.Image, box: list[float], bounds: list[list[int]], min_area: int = 45) -> tuple[int, tuple[float, float] | None]:
+    import cv2
+    import numpy as np
+    hsv = _roi(image, box)
+    mask = cv2.inRange(hsv, np.array(bounds[0]), np.array(bounds[1]))
+    count, _, stats, centers = cv2.connectedComponentsWithStats(mask)
+    valid = [(i, stats[i, cv2.CC_STAT_AREA]) for i in range(1, count) if stats[i, cv2.CC_STAT_AREA] >= min_area]
+    if not valid:
+        return 0, None
+    total_area = sum(area for _, area in valid)
+    w, h = image.size
+    x, y, rw, rh = box
+    cx = sum(centers[i][0] * area for i, area in valid) / total_area
+    cy = sum(centers[i][1] * area for i, area in valid) / total_area
+    return len(valid), (x + (cx / max(w * rw, 1)) * rw, y + (cy / max(h * rh, 1)) * rh)
 
 
 def _bar_ratio(image: Image.Image, box: list[float], color: str) -> float:
@@ -82,16 +103,24 @@ class Vision:
         card_count = _count_spell_cards(image, spell["card_roi"], spell.get("min_card_area", 1500)) if spell.get("enabled", False) else 0
         max_cards = spell.get("max_cards", 10)
         spell_fill = min(1.0, card_count / max_cards) if max_cards else 0.0
+        ground_count, ground_position = _color_stats(image, screen["playfield"], colors["ground"])
+        air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
+        boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
+        elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
         return GameState(
             base_hp=min(1.0, _bar_ratio(image, screen["base_hp_roi"], "green") * 3.0),
             energy=min(1.0, _bar_ratio(image, screen["energy_roi"], "blue") * 3.0),
-            ground_count=_count_color(image, screen["playfield"], colors["ground"]),
-            air_count=_count_color(image, screen["playfield"], colors["air"]),
-            boss_count=_count_color(image, screen["playfield"], colors["boss"], min_area=120),
+            ground_count=ground_count,
+            air_count=air_count,
+            boss_count=boss_count,
             elapsed_seconds=elapsed_seconds,
-            elite_count=_count_color(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120),
+            elite_count=elite_count,
             spell_fill=spell_fill,
             spell_full=spell.get("enabled", False) and card_count >= max_cards,
+            ground_position=ground_position,
+            air_position=air_position,
+            elite_position=elite_position,
+            boss_position=boss_position,
         )
 
     def visual_ready(self, image: Image.Image) -> dict[str, bool]:

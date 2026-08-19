@@ -41,6 +41,7 @@ class Runner:
             "ready_actions": sorted(ready),
             "decision": decision.action,
             "reason": decision.reason,
+            "target": decision.target,
         }
         try:
             with self.history_file.open("a", encoding="utf-8") as f:
@@ -55,12 +56,16 @@ class Runner:
     def _relative_point(self, point: list[float], image) -> tuple[int, int]:
         return int(point[0] * image.width), int(point[1] * image.height)
 
-    def _drag_points(self, name: str, image) -> tuple[tuple[int, int], tuple[int, int]]:
+    def _drag_points(self, name: str, image, state=None, target_kind: str | None = None) -> tuple[tuple[int, int], tuple[int, int]]:
         spec = self.config["actions"][name]
         source = spec.get("source")
         if source is None:
             source = self.config["screen"]["buttons"][name]
         target = spec.get("target", self.config["screen"].get("default_drag_target", [0.52, 0.48]))
+        if state is not None and target_kind:
+            position = getattr(state, f"{target_kind}_position", None)
+            if position is not None:
+                target = list(position)
         return self._relative_point(source, image), self._relative_point(target, image)
 
     def _ready(self, now: float, visual_ready: dict[str, bool]) -> set[str]:
@@ -73,16 +78,16 @@ class Runner:
             self.action_times.popleft()
         return len(self.action_times) < limit
 
-    def _execute(self, action: str, image, now: float) -> None:
+    def _execute(self, action: str, image, now: float, state, decision) -> None:
         if self.config["runtime"].get("dry_run", True):
             if self.config["actions"][action]["kind"] == "drag":
-                source, target = self._drag_points(action, image)
+                source, target = self._drag_points(action, image, state, decision.target)
                 log.info("[dry-run] 拖拽 %s: %s -> %s", self.config["actions"][action]["label"], source, target)
             else:
                 x, y = self._point(action, image)
                 log.info("[dry-run] 点击 %s -> (%d,%d)", self.config["actions"][action]["label"], x, y)
         elif self.config["actions"][action]["kind"] == "drag":
-            source, target = self._drag_points(action, image)
+            source, target = self._drag_points(action, image, state, decision.target)
             duration = self.config["actions"][action].get("duration_ms", 420)
             self.adb.swipe(source[0], source[1], target[0], target[1], duration)
             log.info("拖拽 %s: %s -> %s", self.config["actions"][action]["label"], source, target)
@@ -109,7 +114,7 @@ class Runner:
                 log.info("血量=%.2f 符能=%.2f 符咒槽=%.0f%% 满=%s 地面=%d 空中=%d 精英=%d 首领=%d 可用天书=%s | %s (%s)", state.base_hp, state.energy, state.spell_fill * 100, state.spell_full, state.ground_count, state.air_count, state.elite_count, state.boss_count, ready_books, decision.action or "等待", decision.reason)
                 self._record(state, decision, ready, now)
                 if decision.action and self._rate_ok(now):
-                    self._execute(decision.action, image, now)
+                    self._execute(decision.action, image, now, state, decision)
                     self._record(state, decision, ready, now, event="action")
                 time.sleep(max(0.02, self.config["runtime"]["loop_interval_seconds"] - (time.monotonic() - loop_start)))
         except KeyboardInterrupt:

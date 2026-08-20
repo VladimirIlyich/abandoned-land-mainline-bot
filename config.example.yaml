@@ -53,6 +53,7 @@ screen:
     min_signal: 0.08
   enemy_detection:
     enabled: true
+    mode: dark_entities
     max_total_enemies: 24
   # 需要按实机截图校准：符咒槽/符咒列表所在区域。卡牌位置会在此区域内动态检测。
   spell_detection:

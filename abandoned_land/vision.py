@@ -68,6 +68,49 @@ def _color_stats(image: Image.Image, box: list[float], bounds: list[list[int]], 
     return len(valid), (x + (cx / max(w * rw, 1)) * rw, y + (cy / max(h * rh, 1)) * rh)
 
 
+def _dark_entity_stats(image: Image.Image, box: list[float], y_range: tuple[float, float], min_area: int = 250) -> tuple[int, tuple[float, float] | None]:
+    """识别当前版本的黑色敌人轮廓，避开彩色背景和伤害数字。"""
+    import cv2
+    import numpy as np
+    hsv = _roi(image, box)
+    mask = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([179, 110, 65]))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    count, _, stats, centers = cv2.connectedComponentsWithStats(mask)
+    w, h = image.size
+    x0, y0, rw, rh = box
+    candidates: list[tuple[float, float, int]] = []
+    for i in range(1, count):
+        x, y, cw, ch, area = stats[i]
+        cx = x0 + (centers[i][0] / max(w * rw, 1)) * rw
+        cy = y0 + (centers[i][1] / max(h * rh, 1)) * rh
+        if not (y_range[0] <= cy <= y_range[1]):
+            continue
+        if area < min_area or cw < 18 or ch < 18 or cw > 140 or ch > 90:
+            continue
+        # 左侧基地人物不是敌人；当前关卡敌人从画面中部开始出现。
+        if cx < 0.28:
+            continue
+        candidates.append((cx, cy, int(area)))
+
+    # 一个飞行敌人可能被伤害特效切成多个块，按邻近中心合并。
+    clusters: list[list[tuple[float, float, int]]] = []
+    for candidate in sorted(candidates):
+        for cluster in clusters:
+            if min(abs(candidate[0] - item[0]) for item in cluster) <= 0.065 and abs(candidate[1] - cluster[0][1]) <= 0.10:
+                cluster.append(candidate)
+                break
+        else:
+            clusters.append([candidate])
+    if not clusters:
+        return 0, None
+    total_area = sum(item[2] for cluster in clusters for item in cluster)
+    center = (
+        sum(item[0] * item[2] for cluster in clusters for item in cluster) / total_area,
+        sum(item[1] * item[2] for cluster in clusters for item in cluster) / total_area,
+    )
+    return len(clusters), center
+
+
 def _bar_ratio(image: Image.Image, box: list[float], color: str) -> float:
     import cv2
     import numpy as np
@@ -128,6 +171,9 @@ def _detect_cards(image: Image.Image, box: list[float], min_area: int = 1500) ->
 
     for x, x_end in runs:
         cw = x_end - x
+        # 加载页的进度条也会产生长色块，不能把它当作一张符咒。
+        if cw > rw * w * 0.18:
+            continue
         row_projection = (mask[:scan_h, x:x_end] > 0).sum(axis=1)
         row_threshold = max(8, int(cw * 0.15))
         rows = np.flatnonzero(row_projection > row_threshold)
@@ -159,6 +205,7 @@ class Vision:
         min_landscape_ratio = battle_detection.get("min_landscape_ratio", 1.10)
         battle_screen = image.width >= image.height * min_landscape_ratio
         colors = screen["enemy_colors"]
+        enemy_detection = screen.get("enemy_detection", {})
         spell = screen.get("spell_detection", {})
         base_hp_detection = screen.get("base_hp_detection", {})
         energy_detection = screen.get("energy_detection", {})
@@ -166,11 +213,16 @@ class Vision:
         card_count = len(cards)
         max_cards = spell.get("max_cards", 10)
         spell_fill = min(1.0, card_count / max_cards) if max_cards else 0.0
-        ground_count, ground_position = _color_stats(image, screen["playfield"], colors["ground"])
-        air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
-        boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
-        elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
-        enemy_detection = screen.get("enemy_detection", {})
+        if enemy_detection.get("mode") == "dark_entities":
+            ground_count, ground_position = _dark_entity_stats(image, screen["playfield"], (0.64, 0.76))
+            air_count, air_position = _dark_entity_stats(image, screen["playfield"], (0.20, 0.58))
+            boss_count, boss_position = 0, None
+            elite_count, elite_position = 0, None
+        else:
+            ground_count, ground_position = _color_stats(image, screen["playfield"], colors["ground"])
+            air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
+            boss_count, boss_position = _color_stats(image, screen["playfield"], colors["boss"], min_area=120)
+            elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
         estimated_total = ground_count + air_count + max(elite_count, boss_count)
         enemy_valid = not enemy_detection.get("enabled", True) or estimated_total <= enemy_detection.get("max_total_enemies", 24)
         base_hp_signal = _bar_ratio(image, screen["base_hp_roi"], "green")

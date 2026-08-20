@@ -118,7 +118,8 @@ def _red_bar_stats(image: Image.Image, box: list[float]) -> tuple[int, tuple[flo
     import cv2
     import numpy as np
     hsv = _roi(image, box)
-    lower = cv2.inRange(hsv, np.array([0, 100, 55]), np.array([12, 255, 255]))
+    # 实机血条在特效叠加时会偏橙红，放宽色相上限但仍用长宽比过滤。
+    lower = cv2.inRange(hsv, np.array([0, 80, 45]), np.array([20, 255, 255]))
     upper = cv2.inRange(hsv, np.array([170, 100, 55]), np.array([179, 255, 255]))
     mask = cv2.bitwise_or(lower, upper)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 5), np.uint8))
@@ -128,7 +129,7 @@ def _red_bar_stats(image: Image.Image, box: list[float]) -> tuple[int, tuple[flo
     bars: list[tuple[float, float, int]] = []
     for i in range(1, count):
         x, y, cw, ch, area = stats[i]
-        if area < 180 or cw < 70 or ch < 4 or ch > 26 or cw / max(ch, 1) < 6:
+        if area < 180 or cw < 70 or ch < 4 or ch > 100 or cw / max(ch, 1) < 5:
             continue
         cx = x0 + (centers[i][0] / max(w * rw, 1)) * rw
         cy = y0 + (centers[i][1] / max(h * rh, 1)) * rh

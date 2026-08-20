@@ -56,6 +56,12 @@ class MainlinePolicy:
                 if action in ready:
                     return Decision(action, "基地危险，优先保命与拖延", "ground")
 
+        if not state.base_hp_valid and state.total_enemies >= self.cfg["delay_count"]:
+            # 血条被特效遮挡时也不能继续卖血；只要敌群达到拖延线，就先交控制技能。
+            for action in ("xuanshuiping", "qingnv", "wind_book", "volcano_book", "shigandang"):
+                if action in ready:
+                    return Decision(action, "基地血量暂时不可读，敌群较多，保守进入拖延模式", "ground")
+
         if air_heavy:
             for action in ("wind_book", "volcano_book", "xuanshuiping", "qingnv"):
                 if action in ready:

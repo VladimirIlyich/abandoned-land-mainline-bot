@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import deque
+from statistics import median
 @dataclass
 class GameState:
     base_hp: float
@@ -230,6 +232,9 @@ def _detect_cards(image: Image.Image, box: list[float], min_area: int = 1500) ->
 class Vision:
     def __init__(self, config: dict):
         self.config = config
+        window = max(1, int(config.get("screen", {}).get("resource_smoothing_window", 5)))
+        self._base_hp_signals = deque(maxlen=window)
+        self._energy_signals = deque(maxlen=window)
 
     def read(self, image: Image.Image, elapsed_seconds: float) -> GameState:
         screen = self.config["screen"]
@@ -263,6 +268,12 @@ class Vision:
         # 横屏实机基地护盾/血量显示为蓝色区域；绿色阈值会把正常满血误判为未校准。
         base_hp_signal = _bar_ratio(image, screen["base_hp_roi"], "blue")
         energy_signal = _bar_ratio(image, screen["energy_roi"], "blue")
+        self._base_hp_signals.append(base_hp_signal)
+        self._energy_signals.append(energy_signal)
+        # 战斗特效、数字和技能遮罩会短暂覆盖资源条；中值比单帧值稳定，
+        # 同时仍能在几帧内跟随真实的掉血和符能变化。
+        base_hp_signal = float(median(self._base_hp_signals))
+        energy_signal = float(median(self._energy_signals))
         base_hp_valid = not base_hp_detection.get("enabled", True) or base_hp_signal >= base_hp_detection.get("min_signal", 0.08)
         energy_valid = not energy_detection.get("enabled", True) or energy_signal >= energy_detection.get("min_signal", 0.08)
         card_sources: dict[str, list[float]] = {}

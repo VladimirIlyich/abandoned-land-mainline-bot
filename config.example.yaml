@@ -48,6 +48,7 @@ screen:
   # 横屏实机左侧蓝色基地血量/护盾区域。
   base_hp_roi: [0.00, 0.31, 0.16, 0.37]
   energy_roi: [0.35, 0.90, 0.30, 0.08]
+  resource_smoothing_window: 5
   base_hp_detection:
     enabled: true
     min_signal: 0.08

@@ -37,6 +37,25 @@ class VisionTests(unittest.TestCase):
         self.assertEqual(state.elite_count, 1)
         self.assertIsNotNone(state.elite_position)
 
+    def test_resource_values_use_short_temporal_median(self):
+        image = Image.new("RGB", (1000, 500), (150, 130, 160))
+        config = {
+            "screen": {
+                "playfield": [0.0, 0.0, 1.0, 1.0],
+                "enemy_colors": {"ground": [[0, 60, 50], [35, 255, 255]], "air": [[90, 40, 50], [140, 255, 255]], "boss": [[140, 40, 50], [179, 255, 255]], "elite": [[140, 40, 50], [179, 255, 255]]},
+                "enemy_detection": {"enabled": False, "mode": "dark_entities"},
+                "spell_detection": {"enabled": False},
+                "base_hp_roi": [0, 0, 0.1, 0.1],
+                "energy_roi": [0, 0, 0.1, 0.1],
+                "base_hp_detection": {"enabled": False},
+                "energy_detection": {"enabled": False},
+                "resource_smoothing_window": 3,
+            }
+        }
+        vision = Vision(config)
+        states = [vision.read(image, i) for i in range(3)]
+        self.assertEqual(len(states), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

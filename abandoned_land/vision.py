@@ -111,6 +111,38 @@ def _dark_entity_stats(image: Image.Image, box: list[float], y_range: tuple[floa
     return len(clusters), center
 
 
+def _red_bar_stats(image: Image.Image, box: list[float]) -> tuple[int, tuple[float, float] | None]:
+    """识别敌人上方的长红血条，作为精英/首领的稳定提示。"""
+    import cv2
+    import numpy as np
+    hsv = _roi(image, box)
+    lower = cv2.inRange(hsv, np.array([0, 100, 55]), np.array([12, 255, 255]))
+    upper = cv2.inRange(hsv, np.array([170, 100, 55]), np.array([179, 255, 255]))
+    mask = cv2.bitwise_or(lower, upper)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 5), np.uint8))
+    count, _, stats, centers = cv2.connectedComponentsWithStats(mask)
+    w, h = image.size
+    x0, y0, rw, rh = box
+    bars: list[tuple[float, float, int]] = []
+    for i in range(1, count):
+        x, y, cw, ch, area = stats[i]
+        if area < 180 or cw < 70 or ch < 4 or ch > 26 or cw / max(ch, 1) < 6:
+            continue
+        cx = x0 + (centers[i][0] / max(w * rw, 1)) * rw
+        cy = y0 + (centers[i][1] / max(h * rh, 1)) * rh
+        if not (0.25 <= cx <= 0.98 and 0.18 <= cy <= 0.72):
+            continue
+        bars.append((cx, min(0.76, cy + 0.08), int(area)))
+    if not bars:
+        return 0, None
+    total_area = sum(item[2] for item in bars)
+    center = (
+        sum(item[0] * item[2] for item in bars) / total_area,
+        sum(item[1] * item[2] for item in bars) / total_area,
+    )
+    return len(bars), center
+
+
 def _bar_ratio(image: Image.Image, box: list[float], color: str) -> float:
     import cv2
     import numpy as np
@@ -216,8 +248,11 @@ class Vision:
         if enemy_detection.get("mode") == "dark_entities":
             ground_count, ground_position = _dark_entity_stats(image, screen["playfield"], (0.64, 0.76))
             air_count, air_position = _dark_entity_stats(image, screen["playfield"], (0.20, 0.58))
+            special_count, special_position = _red_bar_stats(image, screen["playfield"])
+            # 当前截图无法稳定区分“精英”和“首领”的血条样式；统一作为高威胁目标，
+            # 交给策略优先使用鬼仆和控制技能，避免漏放鬼仆。
             boss_count, boss_position = 0, None
-            elite_count, elite_position = 0, None
+            elite_count, elite_position = special_count, special_position
         else:
             ground_count, ground_position = _color_stats(image, screen["playfield"], colors["ground"])
             air_count, air_position = _color_stats(image, screen["playfield"], colors["air"])
@@ -225,7 +260,8 @@ class Vision:
             elite_count, elite_position = _color_stats(image, screen["playfield"], colors.get("elite", colors["boss"]), min_area=120)
         estimated_total = ground_count + air_count + max(elite_count, boss_count)
         enemy_valid = not enemy_detection.get("enabled", True) or estimated_total <= enemy_detection.get("max_total_enemies", 24)
-        base_hp_signal = _bar_ratio(image, screen["base_hp_roi"], "green")
+        # 横屏实机基地护盾/血量显示为蓝色区域；绿色阈值会把正常满血误判为未校准。
+        base_hp_signal = _bar_ratio(image, screen["base_hp_roi"], "blue")
         energy_signal = _bar_ratio(image, screen["energy_roi"], "blue")
         base_hp_valid = not base_hp_detection.get("enabled", True) or base_hp_signal >= base_hp_detection.get("min_signal", 0.08)
         energy_valid = not energy_detection.get("enabled", True) or energy_signal >= energy_detection.get("min_signal", 0.08)

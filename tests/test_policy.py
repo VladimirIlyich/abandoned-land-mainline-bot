@@ -47,7 +47,12 @@ class PolicyTests(unittest.TestCase):
         self.assertIsNone(d.action)
 
     def test_full_spell_slot_clears_before_enemy_logic(self):
-        state = self.state(ground_count=0, spell_fill=.8, spell_full=True)
+        state = self.state(ground_count=0, spell_fill=.8, spell_full=True, card_sources={"damage": [0.4, 0.8]})
+        d = self.policy.choose(state, {"ordinary_spell"})
+        self.assertEqual(d.action, "ordinary_spell")
+
+    def test_full_spell_slot_can_clear_when_energy_signal_is_unreliable(self):
+        state = self.state(ground_count=1, spell_fill=1.0, spell_full=True, energy_valid=False, card_sources={"damage": [0.4, 0.8]})
         d = self.policy.choose(state, {"ordinary_spell"})
         self.assertEqual(d.action, "ordinary_spell")
 
@@ -55,6 +60,10 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(ground_count=5), {"ghost_skill", "shigandang"})
         self.assertEqual(d.action, "shigandang")
         d = self.policy.choose(self.state(elite_count=1), {"ghost_skill", "shigandang"})
+        self.assertEqual(d.action, "ghost_skill")
+
+    def test_special_target_uses_ghost_before_other_skills(self):
+        d = self.policy.choose(self.state(elite_count=1, ground_count=4), {"ghost_skill", "shigandang"})
         self.assertEqual(d.action, "ghost_skill")
 
     def test_safe_midwave_can_sell_hp_for_energy(self):
@@ -65,6 +74,10 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(air_count=4, energy=.5), {"ordinary_spell"})
         self.assertEqual(d.action, "ordinary_spell")
         self.assertEqual(d.spell_type, "knockback")
+
+    def test_elite_wins_over_air_pressure_for_ghost_skill(self):
+        d = self.policy.choose(self.state(elite_count=1, air_count=4), {"ghost_skill", "wind_book"})
+        self.assertEqual(d.action, "ghost_skill")
 
     def test_non_battle_screen_never_releases(self):
         d = self.policy.choose(self.state(battle_screen=False, ground_count=10, spell_full=True), {"ordinary_spell", "shigandang"})

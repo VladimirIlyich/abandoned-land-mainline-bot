@@ -35,7 +35,7 @@ class MainlinePolicy:
 
         spell_type = self._spell_type(state)
 
-        if state.spell_full and state.energy_valid and "ordinary_spell" in ready:
+        if state.spell_full and state.card_sources and "ordinary_spell" in ready:
             return Decision("ordinary_spell", f"符咒槽已满({state.spell_fill:.0%})，先清槽让新符咒继续生成", "ground", spell_type)
 
         if state.total_enemies == 0:
@@ -44,6 +44,12 @@ class MainlinePolicy:
         emergency = state.base_hp_valid and state.base_hp <= self.cfg["emergency_base_hp"]
         danger = state.base_hp_valid and state.base_hp <= self.cfg["danger_base_hp"]
         air_heavy = state.air_count >= self.cfg["air_count_threshold"] or state.air_ratio >= self.cfg["air_ratio_threshold"]
+
+        if state.elite_count + state.boss_count >= self.cfg["boss_count"]:
+            # 精英/首领无论在地面还是空中都先交鬼仆，避免空中分支提前消耗掉窗口。
+            for action in ("ghost_skill", "qingnv", "xuanshuiping", "volcano_book", "wind_book", "shigandang"):
+                if action in ready:
+                    return Decision(action, "检测到精英/首领，优先释放鬼仆并建立控制窗口", "elite")
 
         if emergency:
             for action in ("xuanshuiping", "qingnv", "wind_book", "volcano_book", "shigandang"):
@@ -54,12 +60,6 @@ class MainlinePolicy:
             for action in ("wind_book", "volcano_book", "xuanshuiping", "qingnv"):
                 if action in ready:
                     return Decision(action, "空中单位较多，跳过石敢当，优先对空或全屏拖延", "air")
-
-        if state.elite_count + state.boss_count >= self.cfg["boss_count"]:
-            # 先冻住/拖住，再把火山落在首领脚下；石敢当只作无青女时的打断。
-            for action in ("ghost_skill", "qingnv", "volcano_book", "shigandang", "xuanshuiping", "wind_book"):
-                if action in ready:
-                    return Decision(action, "精英/首领窗口：优先鬼仆，再控制和输出", "elite")
 
         if state.ground_count >= self.cfg["ground_control_count"]:
             for action in ("shigandang", "xuanshuiping", "qingnv"):

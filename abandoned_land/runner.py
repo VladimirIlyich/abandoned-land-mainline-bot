@@ -20,6 +20,7 @@ class Runner:
         self.started_at = time.monotonic()
         self.last_history_at = 0.0
         self.history_file = Path(config["runtime"].get("history_file", "run_history.jsonl"))
+        self.release_mode = config["runtime"].get("initial_release_mode", "book")
 
     def _record(self, state, decision, ready, now: float, event: str = "snapshot") -> None:
         interval = self.config["runtime"].get("history_interval_seconds", 1.0)
@@ -77,6 +78,30 @@ class Runner:
         local_ready = {name for name, spec in self.config["actions"].items() if now - self.last_action_at.get(name, -1e9) >= spec.get("cooldown", 0)}
         return {name for name in local_ready if visual_ready.get(name, True)}
 
+    def _required_release_mode(self, action: str) -> str | None:
+        spec = self.config["actions"][action]
+        if "release_mode" in spec:
+            return spec["release_mode"]
+        if action == "ordinary_spell":
+            return "spell"
+        if action in {"shigandang", "xuanshuiping", "qingnv", "volcano_book", "wind_book"}:
+            return "book"
+        return None
+
+    def _ensure_release_mode(self, action: str, image) -> None:
+        required = self._required_release_mode(action)
+        if required is None or required == self.release_mode:
+            return
+        button = self.config["screen"].get("mode_toggle_button", [0.07, 0.85])
+        point = self._relative_point(button, image)
+        if self.config["runtime"].get("dry_run", True):
+            log.info("[dry-run] 切换释放模式: %s -> %s，点击 (%d,%d)", self.release_mode, required, point[0], point[1])
+        else:
+            self.adb.tap(point[0], point[1])
+            time.sleep(self.config["runtime"].get("mode_toggle_settle_seconds", 0.18))
+            log.info("切换释放模式: %s -> %s", self.release_mode, required)
+        self.release_mode = required
+
     def _rate_ok(self, now: float) -> bool:
         limit = self.config["runtime"]["max_actions_per_minute"]
         while self.action_times and now - self.action_times[0] > 60:
@@ -87,6 +112,7 @@ class Runner:
         if action == "ordinary_spell" and self.config["screen"].get("spell_detection", {}).get("enabled", False) and not state.card_sources:
             log.warning("未检测到可拖拽符咒，跳过本次普通符咒释放")
             return
+        self._ensure_release_mode(action, image)
         if self.config["runtime"].get("dry_run", True):
             if self.config["actions"][action]["kind"] == "drag":
                 source, target = self._drag_points(action, image, state, decision.target, decision.spell_type)

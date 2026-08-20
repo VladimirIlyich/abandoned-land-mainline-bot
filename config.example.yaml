@@ -11,6 +11,8 @@ runtime:
   log_level: INFO
   history_file: run_history.jsonl
   history_interval_seconds: 1.0
+  initial_release_mode: book
+  mode_toggle_settle_seconds: 0.18
 
 strategy:
   # 进入关卡前手动装备对应天书，再用 --profile 约束脚本释放范围。
@@ -66,6 +68,8 @@ screen:
     enabled: true
     min_landscape_ratio: 1.10
   default_drag_target: [0.52, 0.48]
+  # 左下角按钮：点击切换“天书释放/符咒释放”模式。
+  mode_toggle_button: [0.07, 0.85]
   # 触控按钮中心，第一次使用前必须按实际截图修改。
   buttons:
     shigandang: [0.07, 0.85]
@@ -89,10 +93,10 @@ screen:
   action_rois: {}
 
 actions:
-  shigandang: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 10.0, label: 石敢当天书}
-  xuanshuiping: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 8.0, label: 玄水瓶}
-  qingnv: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 12.0, label: 青女}
-  volcano_book: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 15.0, label: 火山天书}
-  wind_book: {kind: drag, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 15.0, label: 风系天书}
+  shigandang: {kind: drag, release_mode: book, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 10.0, label: 石敢当天书}
+  xuanshuiping: {kind: drag, release_mode: book, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 8.0, label: 玄水瓶}
+  qingnv: {kind: drag, release_mode: book, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 12.0, label: 青女}
+  volcano_book: {kind: drag, release_mode: book, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 15.0, label: 火山天书}
+  wind_book: {kind: drag, release_mode: book, source: [0.07, 0.85], target: [0.52, 0.48], duration_ms: 520, cooldown: 15.0, label: 风系天书}
   ghost_skill: {kind: tap, cooldown: 12.0, label: 鬼仆技能}
-  ordinary_spell: {kind: drag, source: [0.32, 0.83], target: [0.52, 0.48], duration_ms: 420, cooldown: 0.35, label: 普通符咒}
+  ordinary_spell: {kind: drag, release_mode: spell, source: [0.32, 0.83], target: [0.52, 0.48], duration_ms: 420, cooldown: 0.35, label: 普通符咒}

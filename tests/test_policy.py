@@ -79,6 +79,10 @@ class PolicyTests(unittest.TestCase):
         d = self.policy.choose(self.state(elite_count=1, air_count=4), {"ghost_skill", "wind_book"})
         self.assertEqual(d.action, "ghost_skill")
 
+    def test_air_pressure_never_falls_back_to_shigandang_for_elite(self):
+        d = self.policy.choose(self.state(elite_count=1, air_count=5), {"shigandang"})
+        self.assertIsNone(d.action)
+
     def test_elite_wins_over_full_spell_slot_for_ghost_skill(self):
         d = self.policy.choose(self.state(elite_count=1, spell_full=True, card_sources={"damage": [0.4, 0.8]}), {"ghost_skill", "ordinary_spell"})
         self.assertEqual(d.action, "ghost_skill")

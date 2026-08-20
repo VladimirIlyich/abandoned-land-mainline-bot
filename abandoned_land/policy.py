@@ -37,7 +37,10 @@ class MainlinePolicy:
 
         if state.total_enemies > 0 and state.elite_count + state.boss_count >= self.cfg["boss_count"]:
             # 精英/首领窗口优先级高于清符咒，避免满槽逻辑抢掉鬼仆时机。
-            for action in ("ghost_skill", "qingnv", "xuanshuiping", "volcano_book", "wind_book", "shigandang"):
+            elite_actions = ("ghost_skill", "qingnv", "xuanshuiping", "volcano_book", "wind_book")
+            if state.air_count < self.cfg["air_count_threshold"] and state.air_ratio < self.cfg["air_ratio_threshold"]:
+                elite_actions += ("shigandang",)
+            for action in elite_actions:
                 if action in ready:
                     return Decision(action, "检测到精英/首领，优先释放鬼仆并建立控制窗口", "elite")
 
@@ -52,13 +55,19 @@ class MainlinePolicy:
         air_heavy = state.air_count >= self.cfg["air_count_threshold"] or state.air_ratio >= self.cfg["air_ratio_threshold"]
 
         if emergency:
-            for action in ("xuanshuiping", "qingnv", "wind_book", "volcano_book", "shigandang"):
+            emergency_actions = ("xuanshuiping", "qingnv", "wind_book", "volcano_book")
+            if not air_heavy:
+                emergency_actions += ("shigandang",)
+            for action in emergency_actions:
                 if action in ready:
                     return Decision(action, "基地危险，优先保命与拖延", "ground")
 
         if not state.base_hp_valid and state.total_enemies >= self.cfg["delay_count"]:
             # 血条被特效遮挡时也不能继续卖血；只要敌群达到拖延线，就先交控制技能。
-            for action in ("xuanshuiping", "qingnv", "wind_book", "volcano_book", "shigandang"):
+            delay_actions = ("xuanshuiping", "qingnv", "wind_book", "volcano_book")
+            if not air_heavy:
+                delay_actions += ("shigandang",)
+            for action in delay_actions:
                 if action in ready:
                     return Decision(action, "基地血量暂时不可读，敌群较多，保守进入拖延模式", "ground")
 
